@@ -28,7 +28,9 @@ if uploaded_file is not None:
             time_col = st.selectbox('Pilih kolom waktu (opsional):', [None] + list(df.columns), index=0)
             if time_col:
                 try:
-                    df[time_col] = pd.to_datetime(df[time_col])
+                    df[time_col] = pd.to_datetime(df[time_col], errors='coerce')
+                    if df[time_col].isna().all():
+                        raise ValueError("Kolom waktu tidak valid untuk konversi.")
                     data.index = df[time_col]
                 except Exception as e:
                     st.warning(f"Gagal memproses kolom waktu: {e}")
@@ -42,22 +44,28 @@ if uploaded_file is not None:
 
             # Uji Stasioneritas (ADF Test)
             st.write("Uji Stasioneritas (ADF Test)")
-            adf_result = adfuller(data)
-            st.write(f"ADF Statistic: {adf_result[0]}")
-            st.write(f"P-Value: {adf_result[1]}")
+            try:
+                adf_result = adfuller(data)
+                st.write(f"ADF Statistic: {adf_result[0]}")
+                st.write(f"P-Value: {adf_result[1]}")
 
-            if adf_result[1] > 0.05:
-                st.warning("Data tidak stasioner. Pertimbangkan pembedaan (d).")
+                if adf_result[1] > 0.05:
+                    st.warning("Data tidak stasioner. Pertimbangkan pembedaan (d).")
+            except Exception as e:
+                st.error(f"Uji stasioneritas gagal: {e}")
 
             # Plot ACF dan PACF
             st.write("Plot ACF dan PACF")
-            fig_acf, ax_acf = plt.subplots()
-            plot_acf(data, ax=ax_acf)
-            st.pyplot(fig_acf)
+            try:
+                fig_acf, ax_acf = plt.subplots()
+                plot_acf(data, ax=ax_acf)
+                st.pyplot(fig_acf)
 
-            fig_pacf, ax_pacf = plt.subplots()
-            plot_pacf(data, ax=ax_pacf)
-            st.pyplot(fig_pacf)
+                fig_pacf, ax_pacf = plt.subplots()
+                plot_pacf(data, ax=ax_pacf)
+                st.pyplot(fig_pacf)
+            except Exception as e:
+                st.error(f"Gagal membuat plot ACF/PACF: {e}")
 
             # 2. Estimasi parameter ARIMA
             st.subheader("2. Estimasi")
@@ -121,7 +129,7 @@ if uploaded_file is not None:
                 st.pyplot(fig_forecast)
 
             except Exception as e:
-                st.error(f"Terjadi kesalahan: {e}")
+                st.error(f"Terjadi kesalahan saat estimasi model ARIMA: {e}")
     except Exception as e:
         st.error(f"Gagal memproses file CSV: {e}")
 else:
